@@ -11,7 +11,21 @@ It focuses on supporting the subset of Jinja2 used by modern Large Language Mode
 ## Features
 
 - **C++11 Compatible**: Ensures maximum compatibility across older compiler versions and embedded systems.
-- **Easy Integration**: The core library consists of just **one header file** (`include/jinja.hpp`) and **one source file** (`src/jinja.cpp`), making it extremely easy to copy and drop into any project.
+## Integration
+
+The library is a single header file. Just copy `jinja.hpp` to your project's include directory (or root).
+
+### Feature Checking (Versioning)
+
+You can check the library version using standard macros:
+
+```cpp
+#include "jinja.hpp"
+
+#if JINJA_VERSION_MAJOR >= 0
+    // Use jinja.cpp features
+#endif
+```
 - **Lightweight**: Minimal dependencies (only `nlohmann/json`).
 - **LLM Focused**: Native support for `messages`, `tools`, `add_generation_prompt`, and special tokens.
 - **Strictly Typed**: Uses `nlohmann::json` for context management.

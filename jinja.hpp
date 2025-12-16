@@ -1,4 +1,102 @@
-#include "jinja.hpp"
+/*
+ jinja.hpp - A lightweight C++11 Jinja2 template engine for LLM chat templates.
+ https://github.com/wangzhaode/jinja.cpp
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ */
+
+#pragma once
+
+#include <string>
+#include <memory>
+#include <vector>
+#include <map>
+#include <functional>
+#include <algorithm>
+#include <sstream>
+#include <iostream>
+
+// External dependency: nlohmann/json
+#include <nlohmann/json.hpp>
+
+#define JINJA_VERSION_MAJOR 0
+#define JINJA_VERSION_MINOR 0
+#define JINJA_VERSION_PATCH 1
+#define JINJA_VERSION_STRING STR(JINJA_VERSION_MAJOR) "." STR(JINJA_VERSION_MINOR) "." STR(JINJA_VERSION_PATCH)
+
+namespace jinja {
+
+using json = nlohmann::json;
+using UserFunction = std::function<json(const std::vector<json>&)>;
+
+/**
+ * @brief A lightweight, C++11 compatible Jinja2 template renderer.
+ *
+ * Designed specifically for LLM chat templates (HuggingFace style).
+ * It supports a subset of Jinja2 syntax used in modern models.
+ */
+class Template {
+public:
+    /**
+     * @brief Construct and compile a Jinja template.
+     *
+     * @param template_str The Jinja2 template string.
+     * @param default_context Optional global variables.
+     */
+    inline Template(const std::string& template_str, const json& default_context = json::object());
+
+    /**
+     * @brief Destructor.
+     */
+    inline ~Template();
+
+    // Move semantics
+    Template(Template&&) noexcept;
+    Template& operator=(Template&&) noexcept;
+
+    // Copy semantics deleted
+    Template(const Template&) = delete;
+    Template& operator=(const Template&) = delete;
+
+    /**
+     * @brief Core rendering function.
+     */
+    inline std::string render(const json& context) const;
+
+    /**
+     * @brief Register a custom function.
+     */
+    inline void add_function(const std::string& name, UserFunction func);
+
+    /**
+     * @brief Helper function mimicking HuggingFace's `apply_chat_template`.
+     */
+    inline std::string apply_chat_template(
+        const json& messages,
+        bool add_generation_prompt = true,
+        const json& tools = json::array(),
+        const json& extra_context = json::object()
+    ) const;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
+};
+
+} // namespace jinja
+
+// --- Implementation ---
+
 #include <utility>
 #include <iostream>
 #include <ctime>
@@ -17,9 +115,9 @@ std::unique_ptr<T> make_unique(Args&&... args) {
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
-std::string to_python_string(const json& val);
+inline std::string to_python_string(const json& val);
 
-std::string to_python_repr(const json& val) {
+inline std::string to_python_repr(const json& val) {
     if (val.is_string()) {
          std::string s = val.get<std::string>();
          std::string out = "'";
@@ -36,7 +134,7 @@ std::string to_python_repr(const json& val) {
     return to_python_string(val);
 }
 
-std::string to_json_string(const json& val, int indent = -1, int level = 0) {
+inline std::string to_json_string(const json& val, int indent = -1, int level = 0) {
     if (val.is_null()) return "null";
     if (val.is_boolean()) return val.get<bool>() ? "true" : "false";
     if (val.is_number()) return val.dump();
@@ -101,7 +199,7 @@ std::string to_json_string(const json& val, int indent = -1, int level = 0) {
     return val.dump();
 }
 
-std::string to_python_string(const json& val) {
+inline std::string to_python_string(const json& val) {
     if (val.is_null()) return "None";
     if (val.is_boolean()) return val.get<bool>() ? "True" : "False";
     if (val.is_number()) return val.dump();
@@ -441,11 +539,11 @@ struct Macro;
 static bool is_truthy(const json& val);
 static const json UNDEFINED = {{"__jinja_undefined__", true}};
 
-bool is_undefined(const json& val) {
+inline bool is_undefined(const json& val) {
     return val.is_object() && val.contains("__jinja_undefined__");
 }
 
-bool is_truthy(const json& val) {
+inline bool is_truthy(const json& val) {
     if (is_undefined(val)) return false;
     if (val.is_boolean()) return val.get<bool>();
     if (val.is_string()) return !val.get<std::string>().empty();
@@ -1069,7 +1167,7 @@ struct MacroNode : Node {
     }
 };
 
-json CallExpr::evaluate(Context& context) {
+inline json CallExpr::evaluate(Context& context) {
     if (auto func = context.get_function(func_name)) {
         std::vector<json> arg_vals;
         for (auto& arg : args) {
@@ -1947,19 +2045,19 @@ struct Template::Impl {
     }
 };
 
-Template::Template(const std::string& template_str, const json& default_context)
+inline Template::Template(const std::string& template_str, const json& default_context)
     : m_impl(make_unique<Impl>()) {
     m_impl->template_str = template_str;
     m_impl->default_context = default_context;
     m_impl->parse();
 }
 
-Template::~Template() = default;
+inline Template::~Template() = default;
 
-Template::Template(Template&& other) noexcept = default;
-Template& Template::operator=(Template&& other) noexcept = default;
+inline Template::Template(Template&& other) noexcept = default;
+inline Template& Template::operator=(Template&& other) noexcept = default;
 
-std::string Template::render(const json& context) const {
+inline std::string Template::render(const json& context) const {
     Context ctx(m_impl->default_context);
     ctx.set_functions(&m_impl->functions);
     if (!context.empty()) {
@@ -1972,11 +2070,11 @@ std::string Template::render(const json& context) const {
     return output;
 }
 
-void Template::add_function(const std::string& name, UserFunction func) {
+inline void Template::add_function(const std::string& name, UserFunction func) {
     m_impl->functions[name] = std::move(func);
 }
 
-std::string Template::apply_chat_template(
+inline std::string Template::apply_chat_template(
     const json& messages,
     bool add_generation_prompt,
     const json& tools,
