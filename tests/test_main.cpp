@@ -63,7 +63,7 @@ std::string visualize(const std::string& input) {
 
 std::string normalize_date(const std::string& input) {
     // Pattern 1: dd Mon YYYY (e.g., 26 Jul 2024 or 06 Dec 2025)
-    std::regex pattern1(R"(\b\d{1,2} [A-Z][a-z]{2} \d{4}\b)");
+    std::regex pattern1(R"(\b\d{1,2} [A-Z][a-z]+ \d{4}\b)");
     // Pattern 2: YYYY-MM-DD (e.g., 2025-12-16)
     std::regex pattern2(R"(\b\d{4}-\d{2}-\d{2}\b)");
 
