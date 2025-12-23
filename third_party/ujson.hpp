@@ -9,6 +9,8 @@
 #include <memory>
 #include <algorithm>
 #include <cstring>
+#include <type_traits>
+#include <cstdint>
 
 // Backend selection: nlohmann/json by default
 #ifdef UJSON_USE_RAPIDJSON
@@ -29,7 +31,7 @@ class json;
 /**
  * @brief Internal helper for type extraction from RapidJSON-based ujson bridge.
  */
-template<typename T>
+template<typename T, typename Enable = void>
 struct json_getter {
     static T get(const json& j);
 };
@@ -50,13 +52,15 @@ public:
     // Implicit conversions from basic types
     json(std::nullptr_t) : json() {}
     json(bool b) : json() { m_val->SetBool(b); }
-    json(int i) : json() { m_val->SetInt(i); }
-    json(int64_t i) : json() { m_val->SetInt64(i); }
-    json(uint64_t i) : json() { m_val->SetUint64(i); }
+
+    template<typename T, typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value, int>::type = 0>
+    json(T i) : json() {
+        if (std::is_signed<T>::value) m_val->SetInt64(static_cast<int64_t>(i));
+        else m_val->SetUint64(static_cast<uint64_t>(i));
+    }
+
     json(float f) : json() { m_val->SetDouble(static_cast<double>(f)); }
     json(double d) : json() { m_val->SetDouble(d); }
-    json(long i) : json() { m_val->SetInt64(static_cast<int64_t>(i)); }
-    json(unsigned long i) : json() { m_val->SetUint64(static_cast<uint64_t>(i)); }
     json(const std::string& s) : json() {
         m_val->SetString(s.c_str(), static_cast<rapidjson::SizeType>(s.length()), m_doc->GetAllocator());
     }
@@ -359,7 +363,7 @@ public:
         return buffer.GetString();
     }
 
-    template<typename T> friend struct json_getter;
+    template<typename T, typename Enable> friend struct json_getter;
 
 private:
     // Internal constructor
@@ -377,11 +381,15 @@ private:
 
 // Getter specializations
 template<> struct json_getter<bool> { static bool get(const json& j) { return j.m_val->IsBool() ? j.m_val->GetBool() : false; } };
-template<> struct json_getter<int> { static int get(const json& j) { return j.m_val->IsNumber() ? j.m_val->GetInt() : 0; } };
-template<> struct json_getter<int64_t> { static int64_t get(const json& j) { return j.m_val->IsNumber() ? j.m_val->GetInt64() : 0; } };
-template<> struct json_getter<long> { static long get(const json& j) { return j.m_val->IsNumber() ? (long)j.m_val->GetInt64() : 0; } };
-template<> struct json_getter<uint64_t> { static uint64_t get(const json& j) { return j.m_val->IsNumber() ? j.m_val->GetUint64() : 0; } };
-template<> struct json_getter<unsigned long> { static unsigned long get(const json& j) { return j.m_val->IsNumber() ? (unsigned long)j.m_val->GetUint64() : 0; } };
+
+template<typename T>
+struct json_getter<T, typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value>::type> {
+    static T get(const json& j) {
+        if (!j.m_val->IsNumber()) return 0;
+        if (std::is_signed<T>::value) return static_cast<T>(j.m_val->GetInt64());
+        return static_cast<T>(j.m_val->GetUint64());
+    }
+};
 template<> struct json_getter<double> { static double get(const json& j) { return j.m_val->IsNumber() ? j.m_val->GetDouble() : 0.0; } };
 template<> struct json_getter<std::string> { static std::string get(const json& j) { return j.m_val->IsString() ? std::string(j.m_val->GetString(), j.m_val->GetStringLength()) : ""; } };
 
@@ -415,13 +423,15 @@ public:
 
     json(std::nullptr_t) : json() { *m_val = nullptr; }
     json(bool b) : json() { *m_val = b; }
-    json(int i) : json() { *m_val = i; }
-    json(int64_t i) : json() { *m_val = i; }
-    json(uint64_t i) : json() { *m_val = i; }
+
+    template<typename T, typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value, int>::type = 0>
+    json(T i) : json() {
+        if (std::is_signed<T>::value) *m_val = static_cast<int64_t>(i);
+        else *m_val = static_cast<uint64_t>(i);
+    }
+
     json(float f) : json() { *m_val = f; }
     json(double d) : json() { *m_val = d; }
-    json(long i) : json() { *m_val = i; }
-    json(unsigned long i) : json() { *m_val = (uint64_t)i; }
     json(const std::string& s) : json() { *m_val = s; }
     json(const char* s) : json() { *m_val = s; }
 
