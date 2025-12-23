@@ -9,6 +9,7 @@
 // #define JINJA_DEBUG
 #include "jinja.hpp"
 #include <nlohmann/json.hpp>
+#include <chrono>
 
 using json = nlohmann::json;
 
@@ -60,6 +61,7 @@ std::string normalize_date(const std::string& input) {
 }
 
 int main(int argc, char** argv) {
+    auto start_total = std::chrono::high_resolution_clock::now();
     std::string json_path = "../tests/test_chat_template.json";
     std::string model_filter = "";
     if (argc > 1) {
@@ -141,14 +143,18 @@ int main(int argc, char** argv) {
             bool runtime_error = false;
             std::string error_msg;
 
+            auto start_case = std::chrono::high_resolution_clock::now();
             try {
                 result = chat_template->apply_chat_template(messages, add_gen, tools, extra);
             } catch (const std::exception& e) {
                 runtime_error = true;
                 error_msg = e.what();
             }
+            auto end_case = std::chrono::high_resolution_clock::now();
+            auto duration_case = std::chrono::duration_cast<std::chrono::microseconds>(end_case - start_case).count();
 
-            std::cout << "  ├─ " << std::left << std::setw(50) << desc;
+            std::cout << "  ├─ " << std::left << std::setw(50) << desc << " ";
+            std::cout << Color::GREY << "(" << std::fixed << std::setprecision(2) << duration_case / 1000.0 << "ms) " << Color::RESET;
 
             if (runtime_error) {
                 std::cout << Color::RED << "[ERROR]" << Color::RESET << std::endl;
@@ -199,8 +205,13 @@ int main(int argc, char** argv) {
     std::cout << " Total Cases   : " << total_cases << std::endl;
     std::cout << Color::GREEN << " Passed        : " << total_passed << Color::RESET << std::endl;
 
+    auto end_total = std::chrono::high_resolution_clock::now();
+    auto duration_total = std::chrono::duration_cast<std::chrono::milliseconds>(end_total - start_total).count();
+
     if (total_failed > 0) {
         std::cout << Color::RED   << " Failed        : " << total_failed << Color::RESET << std::endl;
+        std::cout << "--------------------------------------------------" << std::endl;
+        std::cout << " Total Time    : " << duration_total << "ms" << std::endl;
         std::cout << "--------------------------------------------------" << std::endl;
         std::cout << " Failed Models:" << std::endl;
         for (const auto& m : failed_models) {
@@ -209,6 +220,8 @@ int main(int argc, char** argv) {
         return 1;
     } else {
         std::cout << Color::GREEN << " Failed        : 0" << Color::RESET << std::endl;
+        std::cout << "--------------------------------------------------" << std::endl;
+        std::cout << " Total Time    : " << duration_total << "ms" << std::endl;
         std::cout << "\n✨ All tests passed! ✨" << std::endl;
         return 0;
     }
